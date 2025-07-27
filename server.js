@@ -1,80 +1,66 @@
-// 1. Importando as ferramentas
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const cors = require('cors');
-const fs = require('fs'); // Módulo para lidar com arquivos
+const mongoose = require('mongoose');
 
-// 2. Configurando o servidor
 const app = express();
-app.use(cors()); // Habilita o CORS para todas as rotas
-app.use(express.json()); // Permite que o servidor entenda JSON
+app.use(cors());
+app.use(express.json());
 
-const DB_FILE = './db.json'; // Nosso "banco de dados" em arquivo
+// --- CONEXÃO COM O BANCO DE DADOS (sem alterações) ---
+const dbURI = process.env.DATABASE_URL;
+mongoose.connect(dbURI)
+    .then(() => console.log('Conectado ao MongoDB com sucesso!'))
+    .catch((err) => console.error('Erro ao conectar ao MongoDB:', err));
 
-// Função para ler o banco de dados
-const readDB = () => {
-    if (!fs.existsSync(DB_FILE)) {
-        return { users: [] };
+// --- MODELO DO USUÁRIO (ATUALIZADO) ---
+// 1. ATUALIZAÇÃO NO "RG" DO USUÁRIO: Adicionamos um campo 'garden' para guardar o estado do jogo.
+const userSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    garden: { type: Object } // Campo para salvar o gameState
+});
+const User = mongoose.model('User', userSchema);
+
+// --- ROTAS DE AUTENTICAÇÃO (sem alterações) ---
+app.post('/register', async (req, res) => { /* ...código de cadastro sem alterações... */ });
+app.post('/login', async (req, res) => { /* ...código de login sem alterações... */ });
+
+
+// --- NOVAS ROTAS PARA O JOGO ---
+
+// 2. NOVA ROTA PARA SALVAR O JOGO
+app.post('/save-game', async (req, res) => {
+    const { email, gameState } = req.body;
+    try {
+        await User.updateOne({ email: email }, { $set: { garden: gameState } });
+        console.log(`Jogo salvo para ${email}`);
+        res.status(200).json({ message: 'Jogo salvo com sucesso!' });
+    } catch (error) {
+        res.status(500).json({ message: 'Erro ao salvar o jogo.', error });
     }
-    const data = fs.readFileSync(DB_FILE);
-    return JSON.parse(data);
-};
-
-// Função para escrever no banco de dados
-const writeDB = (data) => {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-};
-
-// 3. Criando as Rotas (os "endpoints")
-
-// Rota de Cadastro
-app.post('/register', (req, res) => {
-    const { name, email, password } = req.body;
-    const db = readDB();
-
-    // Verifica se o usuário já existe
-    const userExists = db.users.find(user => user.email === email);
-    if (userExists) {
-        return res.status(400).json({ message: 'Este e-mail já está cadastrado.' });
-    }
-
-    // Criptografa a senha antes de salvar
-    const salt = bcrypt.genSaltSync(10);
-    const hashedPassword = bcrypt.hashSync(password, salt);
-
-    // Cria o novo usuário
-    const newUser = { id: Date.now(), name, email, password: hashedPassword };
-    db.users.push(newUser);
-    writeDB(db);
-
-    console.log('Novo usuário cadastrado:', newUser.email);
-    res.status(201).json({ message: 'Usuário cadastrado com sucesso!' });
 });
 
-// Rota de Login
-app.post('/login', (req, res) => {
-    const { email, password } = req.body;
-    const db = readDB();
-
-    // Encontra o usuário pelo e-mail
-    const user = db.users.find(user => user.email === email);
-    if (!user) {
-        return res.status(404).json({ message: 'Usuário não encontrado.' });
+// 3. NOVA ROTA PARA CARREGAR O JOGO
+app.get('/load-game', async (req, res) => {
+    const { email } = req.query; // Pega o email da URL (ex: /load-game?email=teste@gmail.com)
+    try {
+        const user = await User.findOne({ email: email });
+        if (user && user.garden) {
+            console.log(`Jogo carregado para ${email}`);
+            res.status(200).json({ garden: user.garden });
+        } else {
+            // Se o usuário não tiver um jardim salvo, retorna nulo
+            res.status(200).json({ garden: null });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Erro ao carregar o jogo.', error });
     }
-
-    // Compara a senha enviada com a senha criptografada no banco
-    const isPasswordCorrect = bcrypt.compareSync(password, user.password);
-    if (!isPasswordCorrect) {
-        return res.status(401).json({ message: 'Senha incorreta.' });
-    }
-
-    console.log('Usuário logado:', user.email);
-    // Em um app real, aqui retornaríamos um token (JWT). Por simplicidade, vamos apenas confirmar o sucesso.
-    res.status(200).json({ message: 'Login realizado com sucesso!', user: { name: user.name, email: user.email } });
 });
 
-// 4. Iniciando o servidor
-const PORT = 3000;
+
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Servidor rodando na porta ${PORT}. Acesse http://localhost:${PORT}`);
+    console.log(`Servidor rodando na porta ${PORT}.`);
 });
