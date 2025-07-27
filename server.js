@@ -1,10 +1,12 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const cors = require('cors');
+const cors = require('cors'); // Ferramenta para dar a permissão
 const mongoose = require('mongoose');
 
 const app = express();
-app.use(cors());
+
+// --- CONFIGURAÇÃO DAS PERMISSÕES E DADOS ---
+app.use(cors()); // <<< ESTA É A LINHA MAIS IMPORTANTE QUE ESTAVA FALTANDO NO SEU DEPLOY
 app.use(express.json());
 
 // --- CONEXÃO COM O BANCO DE DADOS MONGO DB ---
