@@ -19,7 +19,6 @@ app.post('/register', (req, res) => {
         const salt = bcrypt.genSaltSync(10);
         const hashedPassword = bcrypt.hashSync(password, salt);
         
-        // CORREÇÃO: Garante que novos usuários tenham o inventário completo
         const newUser = { 
             id: Date.now(),
             name, 
@@ -29,12 +28,14 @@ app.post('/register', (req, res) => {
             coins: 0,
             inventory: { 
                 pots: ['default'],
-                backgrounds: ['default'] 
+                backgrounds: ['default']
             },
             equipped: { 
                 pot: 'default',
                 background: 'default'
-            }
+            },
+            // --- MUDANÇA AQUI ---
+            timeOfDay: 'day' // Novo jogador sempre começa de dia
         };
         users.push(newUser);
 
@@ -47,18 +48,7 @@ app.post('/register', (req, res) => {
 });
 
 app.post('/login', (req, res) => {
-    const { email, password } = req.body;
-    try {
-        const user = users.find(user => user.email === email);
-        if (!user) { return res.status(404).json({ message: 'Usuário não encontrado.' }); }
-        const isPasswordCorrect = bcrypt.compareSync(password, user.password);
-        if (!isPasswordCorrect) { return res.status(401).json({ message: 'Senha incorreta.' });}
-        console.log('Usuário logado:', user.email);
-        const userToReturn = { name: user.name, email: user.email };
-        res.status(200).json({ message: 'Login realizado com sucesso!', user: userToReturn });
-    } catch (error) {
-        res.status(500).json({ message: 'Erro no servidor durante o login.' });
-    }
+    // ... esta função não precisa de mudanças ...
 });
 
 app.post('/player-data', (req, res) => {
@@ -66,11 +56,12 @@ app.post('/player-data', (req, res) => {
     try {
         const user = users.find(u => u.email === email);
         if (user) {
-            // CORREÇÃO: Garante que todos os dados sejam salvos
             user.garden = data.garden;
             user.coins = data.coins;
             user.inventory = data.inventory;
             user.equipped = data.equipped;
+            // --- MUDANÇA AQUI ---
+            user.timeOfDay = data.timeOfDay; // Salva a hora do dia
             console.log(`Dados salvos para ${email}: ${data.coins} moedas.`);
             res.status(200).json({ message: 'Dados salvos com sucesso!' });
         } else {
@@ -87,12 +78,13 @@ app.get('/player-data', (req, res) => {
         const user = users.find(u => u.email === email);
         if (user) {
             console.log(`Dados carregados para ${email}: ${user.coins} moedas.`);
-            // CORREÇÃO: Garante que todos os dados sejam carregados
             res.status(200).json({ 
                 garden: user.garden, 
                 coins: user.coins,
                 inventory: user.inventory,
-                equipped: user.equipped
+                equipped: user.equipped,
+                // --- MUDANÇA AQUI ---
+                timeOfDay: user.timeOfDay // Carrega a hora do dia
             });
         } else {
             res.status(404).json({ message: 'Usuário não encontrado.' });
@@ -106,4 +98,20 @@ app.get('/player-data', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}.`);
+});
+
+// Funções de login omitida para brevidade (continua a mesma)
+app.post('/login', (req, res) => {
+    const { email, password } = req.body;
+    try {
+        const user = users.find(user => user.email === email);
+        if (!user) { return res.status(404).json({ message: 'Usuário não encontrado.' }); }
+        const isPasswordCorrect = bcrypt.compareSync(password, user.password);
+        if (!isPasswordCorrect) { return res.status(401).json({ message: 'Senha incorreta.' });}
+        console.log('Usuário logado:', user.email);
+        const userToReturn = { name: user.name, email: user.email };
+        res.status(200).json({ message: 'Login realizado com sucesso!', user: userToReturn });
+    } catch (error) {
+        res.status(500).json({ message: 'Erro no servidor durante o login.' });
+    }
 });
