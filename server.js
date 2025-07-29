@@ -6,8 +6,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// <<< MUDANÇA: REMOVEMOS O MONGOOSE E A CONEXÃO COM O BANCO DE DADOS >>>
-// Em vez disso, usaremos um array simples para guardar os usuários enquanto o servidor estiver rodando.
 let users = []; 
 
 // --- ROTAS ---
@@ -15,7 +13,6 @@ let users = [];
 app.post('/register', (req, res) => {
     const { name, email, password } = req.body;
     try {
-        // Procura o usuário no nosso array em memória
         const userExists = users.find(user => user.email === email);
         if (userExists) {
             return res.status(400).json({ message: 'Este e-mail já está cadastrado.' });
@@ -24,18 +21,18 @@ app.post('/register', (req, res) => {
         const salt = bcrypt.genSaltSync(10);
         const hashedPassword = bcrypt.hashSync(password, salt);
         
-        // Cria um novo usuário e o adiciona no array
         const newUser = { 
-            id: Date.now(), // Um ID simples baseado no tempo
+            id: Date.now(),
             name, 
             email, 
             password: hashedPassword,
-            garden: null // O jardim começa vazio
+            garden: null,
+            // --- MUDANÇA AQUI ---
+            coins: 0 // Todo novo jogador começa com 0 moedas
         };
         users.push(newUser);
 
-        console.log('Novo usuário cadastrado:', newUser.email);
-        console.log('Total de usuários agora:', users.length);
+        console.log('Novo usuário cadastrado com moedas:', newUser.email);
         res.status(201).json({ message: 'Usuário cadastrado com sucesso!' });
 
     } catch (error) {
@@ -47,7 +44,6 @@ app.post('/register', (req, res) => {
 app.post('/login', (req, res) => {
     const { email, password } = req.body;
     try {
-        // Encontra o usuário no nosso array
         const user = users.find(user => user.email === email);
         if (!user) {
             return res.status(404).json({ message: 'Usuário não encontrado.' });
@@ -59,7 +55,12 @@ app.post('/login', (req, res) => {
         }
 
         console.log('Usuário logado:', user.email);
-        res.status(200).json({ message: 'Login realizado com sucesso!', user: { name: user.name, email: user.email } });
+        // Não enviamos a senha de volta para o front-end por segurança
+        const userToReturn = {
+            name: user.name,
+            email: user.email
+        };
+        res.status(200).json({ message: 'Login realizado com sucesso!', user: userToReturn });
 
     } catch (error) {
         console.error('Erro no login:', error);
@@ -67,41 +68,45 @@ app.post('/login', (req, res) => {
     }
 });
 
-app.post('/save-game', (req, res) => {
-    const { email, gameState } = req.body;
+// --- MUDANÇA AQUI ---
+// Unificamos as rotas de salvar/carregar para lidar com todos os dados do jogador
+app.post('/player-data', (req, res) => {
+    const { email, data } = req.body; // 'data' agora contém { garden, coins }
     try {
-        // Encontra o usuário no array e atualiza seu jardim
         const user = users.find(u => u.email === email);
         if (user) {
-            user.garden = gameState;
-            console.log(`Jogo salvo para ${email}`);
-            res.status(200).json({ message: 'Jogo salvo com sucesso!' });
+            user.garden = data.garden;
+            user.coins = data.coins;
+            console.log(`Dados salvos para ${email}: ${data.coins} moedas.`);
+            res.status(200).json({ message: 'Dados salvos com sucesso!' });
         } else {
-            res.status(404).json({ message: 'Usuário não encontrado para salvar o jogo.' });
+            res.status(404).json({ message: 'Usuário não encontrado para salvar os dados.' });
         }
     } catch (error) {
-        console.error('Erro ao salvar:', error);
-        res.status(500).json({ message: 'Erro ao salvar o jogo.' });
+        console.error('Erro ao salvar dados:', error);
+        res.status(500).json({ message: 'Erro ao salvar os dados.' });
     }
 });
 
-app.get('/load-game', (req, res) => {
+app.get('/player-data', (req, res) => {
     const { email } = req.query;
     try {
-        // Encontra o usuário no array e retorna seu jardim
         const user = users.find(u => u.email === email);
-        if (user && user.garden) {
-            console.log(`Jogo carregado para ${email}`);
-            res.status(200).json({ garden: user.garden });
+        if (user) {
+            console.log(`Dados carregados para ${email}: ${user.coins} moedas.`);
+            res.status(200).json({ 
+                garden: user.garden, 
+                coins: user.coins 
+            });
         } else {
-            // Se não houver jogo salvo, retorna nulo para o front-end criar um novo
-            res.status(200).json({ garden: null });
+            res.status(404).json({ message: 'Usuário não encontrado.' });
         }
     } catch (error) {
-        console.error('Erro ao carregar:', error);
-        res.status(500).json({ message: 'Erro ao carregar o jogo.' });
+        console.error('Erro ao carregar dados:', error);
+        res.status(500).json({ message: 'Erro ao carregar os dados.' });
     }
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
