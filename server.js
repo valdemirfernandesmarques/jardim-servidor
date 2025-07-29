@@ -26,9 +26,14 @@ app.post('/register', (req, res) => {
             password: hashedPassword,
             garden: null,
             coins: 0,
-            // --- MUDANÇA AQUI ---
-            inventory: { pots: ['default'] }, // Inventário inicial
-            equipped: { pot: 'default' }     // Item equipado
+            inventory: { 
+                pots: ['default'],
+                backgrounds: ['default'] // <-- MUDANÇA AQUI
+            },
+            equipped: { 
+                pot: 'default',
+                background: 'default' // <-- MUDANÇA AQUI
+            }
         };
         users.push(newUser);
 
@@ -41,7 +46,6 @@ app.post('/register', (req, res) => {
 });
 
 app.post('/login', (req, res) => {
-    // ... esta função não precisa de mudanças ...
     const { email, password } = req.body;
     try {
         const user = users.find(user => user.email === email);
@@ -63,9 +67,8 @@ app.post('/player-data', (req, res) => {
         if (user) {
             user.garden = data.garden;
             user.coins = data.coins;
-            // --- MUDANÇA AQUI ---
-            user.inventory = data.inventory; // Salva o inventário
-            user.equipped = data.equipped;   // Salva os itens equipados
+            user.inventory = data.inventory;
+            user.equipped = data.equipped;
             console.log(`Dados salvos para ${email}: ${data.coins} moedas.`);
             res.status(200).json({ message: 'Dados salvos com sucesso!' });
         } else {
@@ -85,9 +88,8 @@ app.get('/player-data', (req, res) => {
             res.status(200).json({ 
                 garden: user.garden, 
                 coins: user.coins,
-                // --- MUDANÇA AQUI ---
-                inventory: user.inventory, // Carrega o inventário
-                equipped: user.equipped     // Carrega os itens equipados
+                inventory: user.inventory,
+                equipped: user.equipped
             });
         } else {
             res.status(404).json({ message: 'Usuário não encontrado.' });
