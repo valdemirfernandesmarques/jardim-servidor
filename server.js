@@ -19,6 +19,7 @@ app.post('/register', (req, res) => {
         const salt = bcrypt.genSaltSync(10);
         const hashedPassword = bcrypt.hashSync(password, salt);
         
+        // CORREÇÃO: Garante que novos usuários tenham o inventário completo
         const newUser = { 
             id: Date.now(),
             name, 
@@ -28,11 +29,11 @@ app.post('/register', (req, res) => {
             coins: 0,
             inventory: { 
                 pots: ['default'],
-                backgrounds: ['default'] // <-- MUDANÇA AQUI
+                backgrounds: ['default'] 
             },
             equipped: { 
                 pot: 'default',
-                background: 'default' // <-- MUDANÇA AQUI
+                background: 'default'
             }
         };
         users.push(newUser);
@@ -65,6 +66,7 @@ app.post('/player-data', (req, res) => {
     try {
         const user = users.find(u => u.email === email);
         if (user) {
+            // CORREÇÃO: Garante que todos os dados sejam salvos
             user.garden = data.garden;
             user.coins = data.coins;
             user.inventory = data.inventory;
@@ -85,6 +87,7 @@ app.get('/player-data', (req, res) => {
         const user = users.find(u => u.email === email);
         if (user) {
             console.log(`Dados carregados para ${email}: ${user.coins} moedas.`);
+            // CORREÇÃO: Garante que todos os dados sejam carregados
             res.status(200).json({ 
                 garden: user.garden, 
                 coins: user.coins,
